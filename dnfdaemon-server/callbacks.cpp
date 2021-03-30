@@ -42,6 +42,17 @@ DbusPackageCB::DbusPackageCB(Session & session, const std::string & nevra) : ses
 
 int DbusPackageCB::end(TransferStatus status, const char * msg) {
     try {
+        // Due to is_time_to_print() timeout it is possible that progress signal was not
+        // emitted with correct downloaded / total_to_download value - especially for small packages.
+        // Emit the progress signal at least once signalling that 100% of the package was downloaded.
+        if (status == TransferStatus::SUCCESSFUL) {
+            auto signal =
+                dbus_object->createSignal(dnfdaemon::INTERFACE_RPM, dnfdaemon::SIGNAL_PACKAGE_DOWNLOAD_PROGRESS);
+            add_signature(signal);
+            signal << total;
+            signal << total;
+            dbus_object->emitSignal(signal);
+        }
         auto signal = dbus_object->createSignal(dnfdaemon::INTERFACE_RPM, dnfdaemon::SIGNAL_PACKAGE_DOWNLOAD_END);
         add_signature(signal);
         signal << static_cast<int>(status);
@@ -53,6 +64,7 @@ int DbusPackageCB::end(TransferStatus status, const char * msg) {
 }
 
 int DbusPackageCB::progress(double total_to_download, double downloaded) {
+    total = total_to_download;
     try {
         if (is_time_to_print()) {
             auto signal =

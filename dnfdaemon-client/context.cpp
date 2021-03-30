@@ -41,6 +41,7 @@ void Context::init_session() {
     session_proxy = sdbus::createProxy(connection, dnfdaemon::DBUS_NAME, session_object_path);
     // repository load callbacks
     repocb = std::make_unique<RepoCB>(session_proxy.get(), session_object_path);
+    package_download_cb = std::make_unique<PackageDownloadCB>(session_proxy.get(), session_object_path);
     session_proxy->finishRegistration();
 }
 
