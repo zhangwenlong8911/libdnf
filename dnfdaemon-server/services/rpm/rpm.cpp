@@ -18,10 +18,10 @@ along with dnfdaemon-server.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "rpm.hpp"
-#include "transaction.hpp"
 
 #include "dnfdaemon-server/callbacks.hpp"
 #include "dnfdaemon-server/dbus.hpp"
+#include "dnfdaemon-server/transaction.hpp"
 #include "dnfdaemon-server/utils.hpp"
 
 #include <fmt/format.h>
@@ -244,9 +244,9 @@ static void set_trans_pkg(libdnf::rpm::Package & package, libdnf::transaction::P
         trans_pkg.set_reason(libdnf::transaction::TransactionItemReason::UNKNOWN);
 }
 
-void fill_transactions(libdnf::Goal & goal, libdnf::transaction::TransactionWeakPtr & transaction,  libdnf::rpm::Transaction & rpm_ts, std::vector<std::unique_ptr<RpmTransactionItem>> & transaction_items) {
+void fill_transactions(libdnf::Goal & goal, libdnf::transaction::TransactionWeakPtr & transaction,  libdnf::rpm::Transaction & rpm_ts, std::vector<std::unique_ptr<dnfdaemon::RpmTransactionItem>> & transaction_items) {
     for (auto & package : goal.list_rpm_removes()) {
-        auto item = std::make_unique<RpmTransactionItem>(package, RpmTransactionItem::Actions::ERASE);
+        auto item = std::make_unique<dnfdaemon::RpmTransactionItem>(package, dnfdaemon::RpmTransactionItem::Actions::ERASE);
         auto item_ptr = item.get();
         transaction_items.push_back(std::move(item));
         auto & trans_pkg = transaction->new_package();
@@ -254,7 +254,7 @@ void fill_transactions(libdnf::Goal & goal, libdnf::transaction::TransactionWeak
         rpm_ts.erase(*item_ptr);
     }
     for (auto & package : goal.list_rpm_obsoleted()) {
-        auto item = std::make_unique<RpmTransactionItem>(package, RpmTransactionItem::Actions::ERASE);
+        auto item = std::make_unique<dnfdaemon::RpmTransactionItem>(package, dnfdaemon::RpmTransactionItem::Actions::ERASE);
         auto item_ptr = item.get();
         transaction_items.push_back(std::move(item));
         auto & trans_pkg = transaction->new_package();
@@ -262,7 +262,7 @@ void fill_transactions(libdnf::Goal & goal, libdnf::transaction::TransactionWeak
         rpm_ts.erase(*item_ptr);
     }
     for (auto & package : goal.list_rpm_installs()) {
-        auto item = std::make_unique<RpmTransactionItem>(package, RpmTransactionItem::Actions::INSTALL);
+        auto item = std::make_unique<dnfdaemon::RpmTransactionItem>(package, dnfdaemon::RpmTransactionItem::Actions::INSTALL);
         auto item_ptr = item.get();
         transaction_items.push_back(std::move(item));
         auto & trans_pkg = transaction->new_package();
@@ -270,7 +270,7 @@ void fill_transactions(libdnf::Goal & goal, libdnf::transaction::TransactionWeak
         rpm_ts.install(*item_ptr);
     }
     for (auto & package : goal.list_rpm_reinstalls()) {
-        auto item = std::make_unique<RpmTransactionItem>(package, RpmTransactionItem::Actions::REINSTALL);
+        auto item = std::make_unique<dnfdaemon::RpmTransactionItem>(package, dnfdaemon::RpmTransactionItem::Actions::REINSTALL);
         auto item_ptr = item.get();
         transaction_items.push_back(std::move(item));
         auto & trans_pkg = transaction->new_package();
@@ -278,7 +278,7 @@ void fill_transactions(libdnf::Goal & goal, libdnf::transaction::TransactionWeak
         rpm_ts.reinstall(*item_ptr);
     }
     for (auto & package : goal.list_rpm_upgrades()) {
-        auto item = std::make_unique<RpmTransactionItem>(package, RpmTransactionItem::Actions::UPGRADE);
+        auto item = std::make_unique<dnfdaemon::RpmTransactionItem>(package, dnfdaemon::RpmTransactionItem::Actions::UPGRADE);
         auto item_ptr = item.get();
         transaction_items.push_back(std::move(item));
         auto & trans_pkg = transaction->new_package();
@@ -286,7 +286,7 @@ void fill_transactions(libdnf::Goal & goal, libdnf::transaction::TransactionWeak
         rpm_ts.upgrade(*item_ptr);
     }
     for (auto & package : goal.list_rpm_downgrades()) {
-        auto item = std::make_unique<RpmTransactionItem>(package, RpmTransactionItem::Actions::DOWNGRADE);
+        auto item = std::make_unique<dnfdaemon::RpmTransactionItem>(package, dnfdaemon::RpmTransactionItem::Actions::DOWNGRADE);
         auto item_ptr = item.get();
         transaction_items.push_back(std::move(item));
         auto & trans_pkg = transaction->new_package();
@@ -340,10 +340,6 @@ void download_packages(Session & session, libdnf::Goal & goal) {
     libdnf::rpm::PackageTarget::download_packages(targets, true);
 }
 
-// TODO(mblaha): proper rpm callback
-class DaemonCB : public libdnf::rpm::TransactionCB {
-};
-
 void Rpm::do_transaction(sdbus::MethodCall && call) {
     auto worker = std::thread([this](sdbus::MethodCall call) {
         try {
@@ -367,7 +363,7 @@ void Rpm::do_transaction(sdbus::MethodCall && call) {
             libdnf::rpm::Transaction rpm_transaction(*base);
             auto db_transaction = new_db_transaction(base, comment);
 
-            std::vector<std::unique_ptr<RpmTransactionItem>> transaction_items;
+            std::vector<std::unique_ptr<dnfdaemon::RpmTransactionItem>> transaction_items;
 
             fill_transactions(goal, db_transaction, rpm_transaction, transaction_items);
 
@@ -375,7 +371,7 @@ void Rpm::do_transaction(sdbus::MethodCall && call) {
             db_transaction->set_dt_start(std::chrono::duration_cast<std::chrono::seconds>(time).count());
             db_transaction->start();
 
-            DaemonCB callback;
+            DbusTransactionCB callback(session);
             rpm_transaction.register_cb(&callback);
             auto rpm_result = rpm_transaction.run();
             if (rpm_result != 0) {

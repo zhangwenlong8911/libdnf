@@ -26,6 +26,8 @@ along with dnfdaemon-server.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <string>
 
+namespace dnfdaemon {
+
 class RpmTransactionItem : public libdnf::rpm::TransactionItem {
 public:
     enum class Actions { INSTALL, ERASE, UPGRADE, DOWNGRADE, REINSTALL };
@@ -36,5 +38,7 @@ public:
 private:
     Actions action;
 };
+
+}
 
 #endif
