@@ -51,6 +51,7 @@ public:
     void start(sdbus::Signal & signal);
     void end(sdbus::Signal & signal);
     void progress(sdbus::Signal & signal);
+    void key_import(sdbus::Signal & signal);
 
 private:
     libdnf::cli::progressbar::DownloadProgressBar progress_bar{-1, ""};
