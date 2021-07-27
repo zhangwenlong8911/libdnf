@@ -31,7 +31,7 @@ DbusCallback::DbusCallback(Session & session) : session(session) {
     dbus_object = session.get_dbus_object();
 }
 
-sdbus::Signal DbusCallback::create_signal(std::string interface, std::string  signal_name) {
+sdbus::Signal DbusCallback::create_signal(std::string interface, std::string signal_name) {
     auto signal = dbus_object->createSignal(interface, signal_name);
     // TODO(mblaha): uncomment once setDestination is available in sdbus-cpp
     //signal.setDestination(session->get_sender());
@@ -42,7 +42,9 @@ sdbus::Signal DbusCallback::create_signal(std::string interface, std::string  si
 std::chrono::time_point<std::chrono::steady_clock> DbusCallback::prev_print_time = std::chrono::steady_clock::now();
 
 
-DbusPackageCB::DbusPackageCB(Session & session, const libdnf::rpm::Package & pkg) : DbusCallback(session), pkg_id(pkg.get_id().id) {
+DbusPackageCB::DbusPackageCB(Session & session, const libdnf::rpm::Package & pkg)
+    : DbusCallback(session),
+      pkg_id(pkg.get_id().id) {
     try {
         auto signal = create_signal(dnfdaemon::INTERFACE_RPM, dnfdaemon::SIGNAL_PACKAGE_DOWNLOAD_START);
         signal << pkg.get_full_nevra();
@@ -57,8 +59,7 @@ int DbusPackageCB::end(TransferStatus status, const char * msg) {
         // emitted with correct downloaded / total_to_download value - especially for small packages.
         // Emit the progress signal at least once signalling that 100% of the package was downloaded.
         if (status == TransferStatus::SUCCESSFUL) {
-            auto signal =
-                create_signal(dnfdaemon::INTERFACE_RPM, dnfdaemon::SIGNAL_PACKAGE_DOWNLOAD_PROGRESS);
+            auto signal = create_signal(dnfdaemon::INTERFACE_RPM, dnfdaemon::SIGNAL_PACKAGE_DOWNLOAD_PROGRESS);
             signal << total;
             signal << total;
             dbus_object->emitSignal(signal);
@@ -76,8 +77,7 @@ int DbusPackageCB::progress(double total_to_download, double downloaded) {
     total = total_to_download;
     try {
         if (is_time_to_print()) {
-            auto signal =
-                create_signal(dnfdaemon::INTERFACE_RPM, dnfdaemon::SIGNAL_PACKAGE_DOWNLOAD_PROGRESS);
+            auto signal = create_signal(dnfdaemon::INTERFACE_RPM, dnfdaemon::SIGNAL_PACKAGE_DOWNLOAD_PROGRESS);
             signal << downloaded;
             signal << total_to_download;
             dbus_object->emitSignal(signal);
@@ -89,8 +89,7 @@ int DbusPackageCB::progress(double total_to_download, double downloaded) {
 
 int DbusPackageCB::mirror_failure(const char * msg, const char * url) {
     try {
-        auto signal =
-            create_signal(dnfdaemon::INTERFACE_RPM, dnfdaemon::SIGNAL_PACKAGE_DOWNLOAD_MIRROR_FAILURE);
+        auto signal = create_signal(dnfdaemon::INTERFACE_RPM, dnfdaemon::SIGNAL_PACKAGE_DOWNLOAD_MIRROR_FAILURE);
         signal << msg;
         signal << url;
         dbus_object->emitSignal(signal);
@@ -99,7 +98,7 @@ int DbusPackageCB::mirror_failure(const char * msg, const char * url) {
     return 0;
 }
 
-sdbus::Signal DbusPackageCB::create_signal(std::string interface, std::string  signal_name) {
+sdbus::Signal DbusPackageCB::create_signal(std::string interface, std::string signal_name) {
     auto signal = DbusCallback::create_signal(interface, signal_name);
     signal << pkg_id;
     return signal;
